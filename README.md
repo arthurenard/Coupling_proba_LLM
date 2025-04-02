@@ -1,6 +1,6 @@
-# GPT-2 Text Generation with PyTorch Lightning
+# GPT-2 Text Generation with PyTorch
 
-This project implements a flexible GPT-2 text generation pipeline using PyTorch Lightning with various sampling strategies.
+This project implements a flexible GPT-2 text generation pipeline using PyTorch with various sampling strategies.
 
 ## Features
 
