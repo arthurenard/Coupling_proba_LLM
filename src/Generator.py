@@ -127,7 +127,7 @@ class Generator(pl.LightningModule):
                          temperature: torch.Tensor, nucleus: torch.Tensor,
                          prompt: str = None):
         """
-        Generates token sequences in parallel.
+        Generates token sequences in parallel with KV caching for speed improvement.
         
         Args:
             num_samples: Number of sequences to generate
@@ -164,9 +164,20 @@ class Generator(pl.LightningModule):
         
         # Only use p values for the remaining tokens
         p = p[input_ids.size(1) - 1:]
+        
+        # Initialize KV cache as None
+        past_key_values = None
 
         for i in range(remaining_tokens):
-            outputs = self.model(input_ids=generated_tokens)
+            # Pass the past_key_values and only the last token if we have a cache
+            if past_key_values is not None:
+                outputs = self.model(input_ids=generated_tokens[:, -1:], past_key_values=past_key_values, use_cache=True)
+            else:
+                outputs = self.model(input_ids=generated_tokens, use_cache=True)
+            
+            # Update KV cache
+            past_key_values = outputs.past_key_values
+            
             next_token_logits = outputs.logits[:, -1, :]  # Get logits for the last token
 
             probs = get_probs(next_token_logits, temperature, nucleus)
