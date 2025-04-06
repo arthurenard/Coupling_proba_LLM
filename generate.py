@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 
 # Import functions
-from src.Generator import Generator, generate_p_values, generate_temperature, generate_nucleus, generate_ones
+from src.Generator import Generator
+from src.generate_values import generate_p_values, generate_temperature, generate_nucleus
 
 
 ########### Parse arguments ###########
@@ -15,11 +16,13 @@ parser = argparse.ArgumentParser(description="Generate text using GPT-2 and PyTo
 parser.add_argument("--model_name", type=str, default="gpt2", help="Name of the Hugging Face model to use.")
 parser.add_argument("--num_samples", type=int, default=4, help="Number of text samples to generate.")
 parser.add_argument("--max_length", type=int, default=50, help="Maximum length of the generated sequences.")
-parser.add_argument("--use_nucleus", action="store_true", help="Use nucleus sampling.")
 parser.add_argument("--use_temperature", action="store_true", help="Use temperature sampling.")
+parser.add_argument("--use_nucleus", action="store_true", help="Use nucleus sampling.")
 parser.add_argument("--prompt", type=str, default=None, help="Optional text prompt to start generation.")
 parser.add_argument("--devices", type=str, default="auto", help="Devices to use ('auto', or list of IDs like '0,1').")
 parser.add_argument("--output_json", type=str, default=None, help="Path to save results as JSON.")
+parser.add_argument("--batch_size", type=int, default=None, 
+                    help="Batch size for generation. Use for large models to avoid CUDA OOM errors.")
 args = parser.parse_args()
 
 
@@ -43,6 +46,8 @@ if args.prompt:
 
 ########### Prepare text generation ###########
 num_samples = args.num_samples
+model = Generator(model_name=args.model_name)
+
 p = generate_p_values(args.max_length)
 
 if args.use_temperature and args.use_nucleus:
@@ -54,20 +59,17 @@ if not args.use_temperature and not args.use_nucleus:
 if args.use_temperature:
     temperature = generate_temperature(num_samples)
 else:
-    temperature = generate_ones(num_samples)
+    temperature = torch.ones(num_samples)
 
 if args.use_nucleus:
     nucleus = generate_nucleus(num_samples)
 else:
-    nucleus = generate_ones(num_samples)
-
+    nucleus = torch.ones(num_samples)
 
 ########### Set up the model ###########
-model = Generator(model_name=args.model_name)
 model = model.to(devices)
 temperature = temperature.to(devices)
 nucleus = nucleus.to(devices)
-
 
 ########### Generate text ###########
 decoded_texts = model.generate_text(
@@ -76,7 +78,8 @@ decoded_texts = model.generate_text(
     p=p,
     temperature=temperature,
     nucleus=nucleus,
-    prompt=args.prompt
+    prompt=args.prompt,
+    batch_size=args.batch_size
 )
 
 
@@ -95,7 +98,8 @@ else:
             "max_length": args.max_length,
             "nucleus": args.use_nucleus,
             "temperatures": args.use_temperature,
-            "prompt": args.prompt
+            "prompt": args.prompt,
+            "p_values": p.tolist()  # Convert tensor to list for JSON serialization
         },
         "texts": [
             {

@@ -2,3 +2,4 @@ torch>=2.0.0
 pytorch-lightning>=2.0.0
 transformers>=4.30.0
 accelerate
+huggingface_hub[cli]
